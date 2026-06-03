@@ -82,7 +82,9 @@ export default function ObserveTab() {
           {evalLog.map((entry, i) => (
             <div key={i} className="flex items-center gap-2 text-gray-400 leading-relaxed">
               <span className="text-gray-600">[{entry.ts}]</span>
-              <span className="text-ld-blue font-semibold">EVAL</span>
+              <span className={`font-semibold ${entry.source === 'ld' ? 'text-ld-lime' : 'text-ld-blue'}`}>
+                {entry.source === 'ld' ? 'LD' : 'LOCAL'}
+              </span>
               <span className="text-ld-cyan">{entry.flag}</span>
               <span className="text-gray-500">→</span>
               <span className="text-white">{entry.value}</span>

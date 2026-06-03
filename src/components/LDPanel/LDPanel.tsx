@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useFlags, type LDStatus } from '../../context/FlagContext'
 import FeatureFlagsTab from './FeatureFlagsTab'
 import ExperimentsTab from './ExperimentsTab'
 import AIConfigsTab from './AIConfigsTab'
@@ -22,8 +23,85 @@ function LDLogo() {
   )
 }
 
+const statusConfig: Record<LDStatus, { dot: string; label: string; pulse: boolean }> = {
+  disconnected: { dot: 'bg-gray-500', label: 'Demo mode', pulse: false },
+  connecting:   { dot: 'bg-yellow-400', label: 'Connecting…', pulse: true },
+  connected:    { dot: 'bg-ld-lime', label: 'Live', pulse: true },
+  error:        { dot: 'bg-ld-pink', label: 'Error', pulse: false },
+}
+
+function ConnectSection() {
+  const { ldStatus, ldClientSideId, connectLD, disconnectLD } = useFlags()
+  const [input, setInput] = useState(ldClientSideId)
+  const [expanded, setExpanded] = useState(ldStatus === 'disconnected' && !ldClientSideId)
+
+  function handleConnect(e: React.FormEvent) {
+    e.preventDefault()
+    if (input.trim()) {
+      connectLD(input.trim())
+      setExpanded(false)
+    }
+  }
+
+  if (!expanded) {
+    return (
+      <button
+        onClick={() => setExpanded(true)}
+        className="text-xs font-inter text-gray-500 hover:text-ld-cyan transition-colors underline decoration-dotted"
+      >
+        {ldStatus === 'connected' ? `Connected · ${ldClientSideId.slice(0, 12)}…` : 'Connect to project →'}
+      </button>
+    )
+  }
+
+  return (
+    <form onSubmit={handleConnect} className="mt-2 flex flex-col gap-2">
+      <input
+        autoFocus
+        type="text"
+        placeholder="Client-side ID (e.g. 64a3f…)"
+        value={input}
+        onChange={e => setInput(e.target.value)}
+        className="w-full bg-ld-surface border border-ld-border rounded-lg px-3 py-2 text-white text-xs font-mono placeholder-gray-600 focus:outline-none focus:border-ld-cyan"
+      />
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={!input.trim() || ldStatus === 'connecting'}
+          className="flex-1 bg-ld-blue hover:bg-ld-blue/80 disabled:opacity-50 text-white text-xs font-inter font-semibold py-1.5 rounded-lg transition-colors"
+        >
+          {ldStatus === 'connecting' ? 'Connecting…' : 'Connect'}
+        </button>
+        {ldStatus === 'connected' && (
+          <button
+            type="button"
+            onClick={() => { disconnectLD(); setInput(''); setExpanded(false) }}
+            className="px-3 bg-ld-surface border border-ld-border hover:border-ld-pink text-gray-400 hover:text-ld-pink text-xs font-inter rounded-lg transition-colors"
+          >
+            Disconnect
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          className="px-3 bg-ld-surface border border-ld-border text-gray-400 hover:text-white text-xs font-inter rounded-lg transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+      {ldStatus === 'error' && (
+        <p className="text-ld-pink text-xs font-inter">
+          Could not connect — check your Client-side ID.
+        </p>
+      )}
+    </form>
+  )
+}
+
 export default function LDPanel() {
   const [activeTab, setActiveTab] = useState<Tab>('flags')
+  const { ldStatus } = useFlags()
+  const sc = statusConfig[ldStatus]
 
   return (
     <div className="h-full flex flex-col bg-ld-bg border-l border-ld-border">
@@ -34,12 +112,28 @@ export default function LDPanel() {
             <LDLogo />
             <span className="font-sora font-bold text-white text-base">LaunchDarkly</span>
           </div>
-          <div className="flex items-center gap-1.5 bg-ld-lime/10 border border-ld-lime/30 px-2.5 py-1 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-ld-lime animate-pulse" />
-            <span className="text-ld-lime text-xs font-inter font-semibold">Live</span>
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${
+            ldStatus === 'connected'
+              ? 'bg-ld-lime/10 border-ld-lime/30'
+              : ldStatus === 'error'
+              ? 'bg-ld-pink/10 border-ld-pink/30'
+              : ldStatus === 'connecting'
+              ? 'bg-yellow-400/10 border-yellow-400/30'
+              : 'bg-white/5 border-white/10'
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${sc.dot} ${sc.pulse ? 'animate-pulse' : ''}`} />
+            <span className={`text-xs font-inter font-semibold ${
+              ldStatus === 'connected' ? 'text-ld-lime'
+              : ldStatus === 'error' ? 'text-ld-pink'
+              : ldStatus === 'connecting' ? 'text-yellow-400'
+              : 'text-gray-400'
+            }`}>{sc.label}</span>
           </div>
         </div>
-        <p className="text-gray-500 text-xs font-inter mt-1">UNiDAYS · Production · uk-gb-students</p>
+        <p className="text-gray-500 text-xs font-inter mt-0.5">UNiDAYS · Production · uk-gb-students</p>
+        <div className="mt-2">
+          <ConnectSection />
+        </div>
       </div>
 
       {/* Tabs */}
